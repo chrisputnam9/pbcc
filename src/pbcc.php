@@ -48,28 +48,41 @@ Class Pbcc extends Console_Abstract
     ];
 	public function get($endpoint, $output=true)
     {
+        // Clean up endpoint
         $endpoint = trim($endpoint, " \t\n\r\0\x0B/");
+        $endpoint = preg_replace("~\.xml$~", "", $endpoint);
+        $endpoint = $endpoint . '.xml';
 
-        // todo
         // Check for valid cached result if cache is enabled
-        if ($this->api_cache and false)
+        $cache_file = false;
+        $results = "";
+        if ($this->api_cache)
         {
-            $cachefile = $this->getAPICacheFilepath($endpoint);
+            $cache_file = $this->getAPICacheFilepath($endpoint);
+
+            if (is_file($cache_file))
+            {
+                $cache_modified = filemtime($cache_file);
+                $now = $time;
+                $cache_age = $now - $cache_modified;
+                if ($cache_modified < $this->api_cache_lifetime)
+                {
+                    $results = file_get_contents($cache_file);
+                }
+            }
         }
 
-        // Get API curl object for endpoint
-        $ch = $this->getAPICurl($endpoint);
-
-        // Execute and check results, then close curl
-        $results = curl_exec($ch);
         if (empty($results))
         {
-            $this->error(curl_error($ch));
-        }
-        curl_close($ch);
+            // Get API curl object for endpoint
+            $ch = $this->getAPICurl($endpoint);
 
-        // todo
-        // Cache results if enabled
+            // Execute and check results, then close curl
+            $results = $this->runAPICurl($ch);
+
+            // todo
+            // Cache results if enabled
+        }
 
         if ($output)
         {
@@ -107,12 +120,7 @@ Class Pbcc extends Console_Abstract
         ]);
 
         // Execute and check results, then close curl
-        $results = curl_exec($ch);
-        if (empty($results))
-        {
-            $this->error(curl_error($ch));
-        }
-        curl_close($ch);
+        $results = $this->runAPICurl($ch);
 
         if ($output)
         {
@@ -138,12 +146,7 @@ Class Pbcc extends Console_Abstract
         ]);
 
         // Execute and check results, then close curl
-        $results = curl_exec($ch);
-        if (empty($results))
-        {
-            $this->error(curl_error($ch));
-        }
-        curl_close($ch);
+        $results = $this->runAPICurl($ch);
 
         if ($output)
         {
@@ -160,6 +163,9 @@ Class Pbcc extends Console_Abstract
     {
         $config_dir = $this->getConfigDir();
         $cache_dir = $config_dir . DS . 'cache' . DS . 'bc-api';
+        $endpoint = str_replace("/", DS, $endpoint);
+
+        return $cache_dir . $endpoint;
     }
 
     /**
@@ -178,6 +184,45 @@ Class Pbcc extends Console_Abstract
             ),
         ]);
         return $ch;
+    }
+
+    /**
+     * Get results from pre-prepared curl object
+     *  - Handle errors
+     *  - Parse results
+g    */
+    protected function runAPICurl($ch, $close=true)
+    {
+        // Execute
+        $results = curl_exec($ch);
+
+        // Get response code
+        $response_code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+
+        // Make sure valid response
+        if ( empty($results) ) {
+            $this->error("Request Error: " . curl_error($ch));
+        }
+
+        if ( $response_code == 404 )
+        {
+            $this->error("Response: $response_code - check endpoint URL");
+        }
+
+        if (
+            $response_code < 200
+            or $response_code > 299
+        ) {
+            $this->error("Response: $response_code", false);
+            $this->error($results);
+        }
+
+        if ($close)
+        {
+            curl_close($ch);
+        }
+
+        return $results;
     }
 
     /**
