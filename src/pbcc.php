@@ -58,30 +58,51 @@ Class Pbcc extends Console_Abstract
         $results = "";
         if ($this->api_cache)
         {
+            $this->log("Cache is enabled - checking...");
             $cache_file = $this->getAPICacheFilepath($endpoint);
 
             if (is_file($cache_file))
             {
+                $this->log("Cache file exists ($cache_file) - checking age");
                 $cache_modified = filemtime($cache_file);
-                $now = $time;
+                $now = time();
                 $cache_age = $now - $cache_modified;
-                if ($cache_modified < $this->api_cache_lifetime)
+                if ($cache_age < $this->api_cache_lifetime)
                 {
+                    $this->log("New enough - reading from cache file ($cache_file)");
                     $results = file_get_contents($cache_file);
+                    if ($results === false)
+                    {
+                        $this->warn("Failed to read cache file ($cache_file) - possible permissions issue");
+                    }
                 }
             }
         }
 
         if (empty($results))
         {
+            $this->log("Running fresh API request");
+
             // Get API curl object for endpoint
             $ch = $this->getAPICurl($endpoint);
 
             // Execute and check results, then close curl
             $results = $this->runAPICurl($ch);
 
-            // todo
             // Cache results if enabled
+            if ($this->api_cache)
+            {
+                $cache_dir = dirname($cache_file);
+                if (!is_dir($cache_dir))
+                    mkdir($cache_dir, 0755, true);
+
+                $cache_file = $this->getAPICacheFilepath($endpoint);
+                $written = file_put_contents($cache_file, $results);
+                if ($written === false)
+                {
+                    $this->warn("Failed to write to cache file ($cache_file) - possible permissions issue");
+                }
+            }
         }
 
         if ($output)
@@ -165,7 +186,9 @@ Class Pbcc extends Console_Abstract
         $cache_dir = $config_dir . DS . 'cache' . DS . 'bc-api';
         $endpoint = str_replace("/", DS, $endpoint);
 
-        return $cache_dir . $endpoint;
+        $cache_file = $cache_dir . DS . $endpoint;
+
+        return $cache_file;
     }
 
     /**
