@@ -14,6 +14,7 @@ Class Pbcc extends Console_Abstract
      * Callable Methods
      */
     protected static $METHODS = [
+        'search',
         'get',
         'post',
         'delete',
@@ -40,6 +41,25 @@ Class Pbcc extends Console_Abstract
 
     // Update this to your update URL, or remove it to disable updates
 	public $update_version_url = "";
+
+    protected $___search = [
+        "Search GET data from the Basecamp Classic API",
+        ["Text to search for", "string"],
+        ["Endpoint slug", "string"],
+        ["Whether to output results"],
+    ];
+	public function search($endpoint, $query, $output=true)
+    {
+        $results = $this->get($endpoint, false);
+        $xml = new SimpleXMLElement($results);
+
+        $results = $xml->xpath("/*/*/name[contains(., '$query')]/..");
+
+        foreach ($results as $result)
+        {
+            echo $result->name . " (" . $result->id . ")\n";
+        }
+    }
 
     protected $___get = [
         "GET data from the Basecamp Classic API",
