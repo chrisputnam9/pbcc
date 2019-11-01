@@ -53,11 +53,19 @@ Class Pbcc extends Console_Abstract
         $results = $this->get($endpoint, false);
         $xml = new SimpleXMLElement($results);
 
-        $results = $xml->xpath("/*/*/name[contains(., '$query')]/..");
+        $results = $xml->xpath("/*/*/*[contains(., '$query')]/..");
 
         foreach ($results as $result)
         {
-            echo $result->name . " (" . $result->id . ")\n";
+            $name = "";
+            if (isset($result->name)) $name = $result->name;
+            if (isset($result->content)) $name = $result->content;
+            $name = strip_tags($name);
+            if (strlen($name) > 100)
+            {
+                $name = substr($name, 0, 97) . '...';
+            }
+            echo "(" . $result->id . ") $name\n";
         }
     }
 
@@ -225,6 +233,7 @@ Class Pbcc extends Console_Abstract
                 'Content-Type: application/xml',
                 'Authorization: Basic ' . base64_encode($this->api_key . ':X'),
             ),
+            CURLOPT_TIMEOUT => 1800,
         ]);
         return $ch;
     }
