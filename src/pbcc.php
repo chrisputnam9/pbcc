@@ -14,6 +14,7 @@ Class Pbcc extends Console_Abstract
      * Callable Methods
      */
     protected static $METHODS = [
+        'alias',
         'search',
         'get',
         'post',
@@ -39,8 +40,20 @@ Class Pbcc extends Console_Abstract
     protected $__api_cache_lifetime = ["How long to cache results in seconds (if enabled)"];
     public $api_cache_lifetime = 86400; // Default: 24 hours
 
+    protected $__aliases = ["Aliases for endpoint URLs and segments"];
+    protected $aliases = [];
+
     // Update this to your update URL, or remove it to disable updates
 	public $update_version_url = "";
+
+    protected $___alias = [
+        "Look up or create an alias",
+        ["Name of alias - will be converted to snake_case", "string", "required"],
+        ["Value to set (if null, will look up current value instead)", "string"],
+    ];
+	public function alias($name, $value=null)
+    {
+    }
 
     protected $___search = [
         "Search GET data from the Basecamp Classic API",
