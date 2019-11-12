@@ -43,6 +43,16 @@ Class Pbcc extends Console_Abstract
     protected $__aliases = ["Aliases for endpoint URLs and segments"];
     protected $aliases = [];
 
+    // Information for specific types
+    protected $name_field = [
+        'project' => 'name',
+        'todo-item' => 'content',
+    ];
+
+    protected $link_template = [
+        'todo-item' => '/todo_items/%s/comments',
+    ];
+
     // Update this to your update URL, or remove it to disable updates
 	public $update_version_url = "";
 
@@ -57,35 +67,37 @@ Class Pbcc extends Console_Abstract
 
     protected $___search = [
         "Search GET data from the Basecamp Classic API",
-        ["Text to search for", "string"],
         ["Endpoint slug", "string"],
-        ["Whether to output results"],
+        ["Text to search for", "string"],
+        ["Fields to output in results - comma separated", "string"],
     ];
 	public function search($endpoint, $query, $output=true)
+    {
+        return $this->xpath($endpoint, "/*/*/*[contains(., '$query')]/..", $output);
+    }
+
+    protected $___xpath = [
+        "Search GET data from Basecamp Classic API, using an XPath Expression - https://developer.mozilla.org/en-US/docs/Web/XPath",
+        ["Endpoint slug", "string"],
+        ["XPath Expression"],
+        ["Fields to output in results - comma separated, false to output nothing", "string"],
+    ];
+	public function xpath($endpoint, $xpath, $output=true)
     {
         $results = $this->get($endpoint, false);
         $xml = new SimpleXMLElement($results);
 
-        $results = $xml->xpath("/*/*/*[contains(., '$query')]/..");
+        $results = $xml->xpath($xpath);
 
-        foreach ($results as $result)
-        {
-            $name = "";
-            if (isset($result->name)) $name = $result->name;
-            if (isset($result->content)) $name = $result->content;
-            $name = strip_tags($name);
-            if (strlen($name) > 100)
-            {
-                $name = substr($name, 0, 97) . '...';
-            }
-            echo "(" . $result->id . ") $name\n";
-        }
+        $this->outputAPIResults($results, $output);
+
+        return $results;
     }
 
     protected $___get = [
         "GET data from the Basecamp Classic API",
         ["Endpoint slug", "string"],
-        ["Whether to output results"],
+        ["Fields to output in results - comma separated, false to output nothing", "string"],
     ];
 	public function get($endpoint, $output=true)
     {
@@ -95,12 +107,11 @@ Class Pbcc extends Console_Abstract
         $endpoint = $endpoint . '.xml';
 
         // Check for valid cached result if cache is enabled
-        $cache_file = false;
+        $cache_file = $this->getAPICacheFilepath($endpoint);
         $results = "";
         if ($this->api_cache)
         {
             $this->log("Cache is enabled - checking...");
-            $cache_file = $this->getAPICacheFilepath($endpoint);
 
             if (is_file($cache_file))
             {
@@ -130,19 +141,16 @@ Class Pbcc extends Console_Abstract
             // Execute and check results, then close curl
             $results = $this->runAPICurl($ch);
 
-            // Cache results if enabled
-            if ($this->api_cache)
-            {
-                $cache_dir = dirname($cache_file);
-                if (!is_dir($cache_dir))
-                    mkdir($cache_dir, 0755, true);
+            // Cache results
+            $cache_dir = dirname($cache_file);
+            if (!is_dir($cache_dir))
+                mkdir($cache_dir, 0755, true);
 
-                $cache_file = $this->getAPICacheFilepath($endpoint);
-                $written = file_put_contents($cache_file, $results);
-                if ($written === false)
-                {
-                    $this->warn("Failed to write to cache file ($cache_file) - possible permissions issue");
-                }
+            $cache_file = $this->getAPICacheFilepath($endpoint);
+            $written = file_put_contents($cache_file, $results);
+            if ($written === false)
+            {
+                $this->warn("Failed to write to cache file ($cache_file) - possible permissions issue");
             }
         }
 
@@ -158,7 +166,7 @@ Class Pbcc extends Console_Abstract
         "POST data to the Basecamp Classic API",
         ["Endpoint slug", "string"],
         ["Body - main body to post - XML string expected in CLI", "string"],
-        ["Whether to output results"],
+        ["Fields to output in results - comma separated, false to output nothing", "string"],
     ];
 	public function post($endpoint, $body="", $output=true)
     {
@@ -195,7 +203,7 @@ Class Pbcc extends Console_Abstract
     protected $___delete = [
         "DELETE data from the Basecamp Classic API",
         ["Endpoint slug", "string"],
-        ["Whether to output results"],
+        ["Fields to output in results - comma separated, false to output nothing", "string"],
     ];
 	public function delete($endpoint, $output=true)
     {
@@ -288,6 +296,65 @@ g    */
         }
 
         return $results;
+    }
+
+    /**
+     * Output API Results with links
+     */
+    protected function outputAPIResults ($results, $output=true)
+    {
+        if (is_string($output))
+        {
+            $output = trim(strtolower($output));
+        }
+
+        if ($output == false or $output == "false") return;
+
+        if (is_string($output))
+        {
+            $output = explode(",", $output);
+            $output = array_map('trim', $output);
+        }
+        else
+        {
+            $output = [];
+        }
+
+        foreach ($results as $result)
+        {
+            $type = $result->getName();
+            $name_field = isset($this->name_field[$type]) ? $this->name_field[$type] : "name";
+
+            $name = "";
+            if (isset($result->$name_field)) $name = $result->$name_field;
+
+            $name = strip_tags($name);
+            if (strlen($name) > 60)
+            {
+                $name = substr($name, 0, 57) . '...';
+            }
+            $name = str_pad($name, 60);
+            echo "(" . $result->id . ") $name";
+
+            $link_template = isset($this->link_template[$type]) ? $this->link_template[$type] : false;
+            if ($link_template)
+            {
+                $link = $this->api_url . sprintf($link_template, $result->id);
+                echo " $link";
+            }
+
+            foreach ($output as $output_field)
+            {
+                echo "\n -- $output_field: ";
+
+                if (isset($result->$output_field))
+                {
+                    echo $result->$output_field;
+                }
+            }
+
+            echo "\n\n";
+        }
     }
 
     /**
