@@ -19,6 +19,7 @@ Class Pbcc extends Console_Abstract
         'get',
         'post',
         'delete',
+        'xpath',
     ];
 
     // Config Variables
@@ -334,27 +335,25 @@ g    */
                 $name = substr($name, 0, 57) . '...';
             }
             $name = str_pad($name, 60);
-            echo "(" . $result->id . ") $name";
+            $link = "";
 
             $link_template = isset($this->link_template[$type]) ? $this->link_template[$type] : false;
             if ($link_template)
             {
                 $link = $this->api_url . sprintf($link_template, $result->id);
-                echo " $link";
             }
+
+            $this->output("(" . $result->id . ") $name [$link]");
 
             foreach ($output as $output_field)
             {
-                echo "\n -- $output_field: ";
-
-                if (isset($result->$output_field))
-                {
-                    echo $result->$output_field;
-                }
+                $value = isset($result->$output_field) ? $result->$output_field : "";
+                $this->output(" -- $output_field: $value");
             }
-
-            echo "\n\n";
         }
+
+        $this->hr();
+        $this->output("Total Results: " . count($results));
     }
 
     /**
