@@ -309,7 +309,7 @@ g    */
             $output = trim(strtolower($output));
         }
 
-        if ($output == false or $output == "false") return;
+        if ($output == false or $output === "false") return;
 
         if (is_string($output))
         {
