@@ -70,7 +70,7 @@ Class Pbcc extends Console_Abstract
         "Search GET data from the Basecamp Classic API",
         ["Endpoint slug", "string"],
         ["Text to search for", "string"],
-        ["Fields to output in results - comma separated", "string"],
+        ["Fields to output in results - comma separated, false to output nothing, * to show all", "string"],
     ];
 	public function search($endpoint, $query, $output=true)
     {
@@ -81,7 +81,7 @@ Class Pbcc extends Console_Abstract
         "Search GET data from Basecamp Classic API, using an XPath Expression - https://developer.mozilla.org/en-US/docs/Web/XPath",
         ["Endpoint slug", "string"],
         ["XPath Expression"],
-        ["Fields to output in results - comma separated, false to output nothing", "string"],
+        ["Fields to output in results - comma separated, false to output nothing, * to show all", "string"],
     ];
 	public function xpath($endpoint, $xpath, $output=true)
     {
@@ -98,7 +98,7 @@ Class Pbcc extends Console_Abstract
     protected $___get = [
         "GET data from the Basecamp Classic API",
         ["Endpoint slug", "string"],
-        ["Fields to output in results - comma separated, false to output nothing", "string"],
+        ["Fields to output in results - comma separated, false to output nothing, * to show all", "string"],
     ];
 	public function get($endpoint, $output=true)
     {
@@ -167,7 +167,7 @@ Class Pbcc extends Console_Abstract
         "POST data to the Basecamp Classic API",
         ["Endpoint slug", "string"],
         ["Body - main body to post - XML string expected in CLI", "string"],
-        ["Fields to output in results - comma separated, false to output nothing", "string"],
+        ["Fields to output in results - comma separated, false to output nothing, * to show all", "string"],
     ];
 	public function post($endpoint, $body="", $output=true)
     {
@@ -204,7 +204,7 @@ Class Pbcc extends Console_Abstract
     protected $___delete = [
         "DELETE data from the Basecamp Classic API",
         ["Endpoint slug", "string"],
-        ["Fields to output in results - comma separated, false to output nothing", "string"],
+        ["Fields to output in results - comma separated, false to output nothing, * to show all", "string"],
     ];
 	public function delete($endpoint, $output=true)
     {
@@ -347,8 +347,18 @@ g    */
 
             foreach ($output as $output_field)
             {
-                $value = isset($result->$output_field) ? $result->$output_field : "";
-                $this->output(" -- $output_field: $value");
+                if ($output_field == '*')
+                {
+                    foreach ($result as $field => $value)
+                    {
+                        $this->output(" -- $field: $value");
+                    }
+                }
+                else
+                {
+                    $value = isset($result->$output_field) ? $result->$output_field : "";
+                    $this->output(" -- $output_field: $value");
+                }
             }
         }
 
