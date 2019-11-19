@@ -157,7 +157,14 @@ Class Pbcc extends Console_Abstract
 
         if ($output)
         {
-            $this->output($body);
+            if (empty($body))
+            {
+                $this->output('Empty response.');
+            }
+            else
+            {
+                $this->output($body);
+            }
         }
 
         if ($return_headers)
@@ -200,7 +207,14 @@ Class Pbcc extends Console_Abstract
 
         if ($output)
         {
-            $this->output($body);
+            if (empty($body))
+            {
+                $this->output('Success!');
+            }
+            else
+            {
+                $this->output($body);
+            }
         }
 
         if ($return_headers)
@@ -231,7 +245,14 @@ Class Pbcc extends Console_Abstract
 
         if ($output)
         {
-            $this->output($body);
+            if (empty($body))
+            {
+                $this->output('Success!');
+            }
+            else
+            {
+                $this->output($body);
+            }
         }
 
         return $body;
