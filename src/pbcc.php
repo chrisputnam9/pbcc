@@ -85,14 +85,14 @@ Class Pbcc extends Console_Abstract
     ];
 	public function xpath($endpoint, $xpath, $output=true)
     {
-        $results = $this->get($endpoint, false);
-        $xml = new SimpleXMLElement($results);
+        $body = $this->get($endpoint, false);
+        $xml = new SimpleXMLElement($body);
 
-        $results = $xml->xpath($xpath);
+        $body = $xml->xpath($xpath);
 
-        $this->outputAPIResults($results, $output);
+        $this->outputAPIResults($body, $output);
 
-        return $results;
+        return $body;
     }
 
     protected $___get = [
@@ -100,7 +100,7 @@ Class Pbcc extends Console_Abstract
         ["Endpoint slug", "string"],
         ["Fields to output in results - comma separated, false to output nothing, * to show all", "string"],
     ];
-	public function get($endpoint, $output=true)
+	public function get($endpoint, $output=true, $return_headers=false)
     {
         // Clean up endpoint
         $endpoint = trim($endpoint, " \t\n\r\0\x0B/");
@@ -109,8 +109,8 @@ Class Pbcc extends Console_Abstract
 
         // Check for valid cached result if cache is enabled
         $cache_file = $this->getAPICacheFilepath($endpoint);
-        $results = "";
-        if ($this->api_cache)
+        $body = "";
+        if ($this->api_cache and !$return_headers)
         {
             $this->log("Cache is enabled - checking...");
 
@@ -123,8 +123,8 @@ Class Pbcc extends Console_Abstract
                 if ($cache_age < $this->api_cache_lifetime)
                 {
                     $this->log("New enough - reading from cache file ($cache_file)");
-                    $results = file_get_contents($cache_file);
-                    if ($results === false)
+                    $body = file_get_contents($cache_file);
+                    if ($body === false)
                     {
                         $this->warn("Failed to read cache file ($cache_file) - possible permissions issue");
                     }
@@ -132,15 +132,15 @@ Class Pbcc extends Console_Abstract
             }
         }
 
-        if (empty($results))
+        if (empty($body))
         {
             $this->log("Running fresh API request");
 
             // Get API curl object for endpoint
             $ch = $this->getAPICurl($endpoint);
 
-            // Execute and check results, then close curl
-            $results = $this->runAPICurl($ch);
+            // Execute and check results
+            list($body, $headers) = $this->runAPICurl($ch);
 
             // Cache results
             $cache_dir = dirname($cache_file);
@@ -148,7 +148,7 @@ Class Pbcc extends Console_Abstract
                 mkdir($cache_dir, 0755, true);
 
             $cache_file = $this->getAPICacheFilepath($endpoint);
-            $written = file_put_contents($cache_file, $results);
+            $written = file_put_contents($cache_file, $body);
             if ($written === false)
             {
                 $this->warn("Failed to write to cache file ($cache_file) - possible permissions issue");
@@ -157,10 +157,15 @@ Class Pbcc extends Console_Abstract
 
         if ($output)
         {
-            $this->output($results);
+            $this->output($body);
         }
 
-        return $results;
+        if ($return_headers)
+        {
+            return [$body, $headers];
+        }
+
+        return $body;
     }
 
     protected $___post = [
@@ -169,7 +174,7 @@ Class Pbcc extends Console_Abstract
         ["Body - main body to post - XML string expected in CLI", "string"],
         ["Fields to output in results - comma separated, false to output nothing, * to show all", "string"],
     ];
-	public function post($endpoint, $body="", $output=true)
+	public function post($endpoint, $body="", $output=true, $return_headers=false)
     {
         // Get API curl object for endpoint
         $ch = $this->getAPICurl($endpoint);
@@ -190,15 +195,20 @@ Class Pbcc extends Console_Abstract
             CURLOPT_POSTFIELDS => $body,
         ]);
 
-        // Execute and check results, then close curl
-        $results = $this->runAPICurl($ch);
+        // Execute and check results
+        list($body, $headers) = $this->runAPICurl($ch);
 
         if ($output)
         {
-            $this->output($results);
+            $this->output($body);
         }
 
-        return $results;
+        if ($return_headers)
+        {
+            return [$body, $headers];
+        }
+
+        return $body;
     }
 
     protected $___delete = [
@@ -216,15 +226,15 @@ Class Pbcc extends Console_Abstract
             CURLOPT_CUSTOMREQUEST => 'DELETE',
         ]);
 
-        // Execute and check results, then close curl
-        $results = $this->runAPICurl($ch);
+        // Execute and check results
+        list($body, $headers) = $this->runAPICurl($ch);
 
         if ($output)
         {
-            $this->output($results);
+            $this->output($body);
         }
 
-        return $results;
+        return $body;
     }
 
     /**
@@ -267,14 +277,32 @@ Class Pbcc extends Console_Abstract
 g    */
     protected function runAPICurl($ch, $close=true)
     {
+        // Prep to receive headers
+        $headers = [];
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION,
+            function($curl, $header) use (&$headers)
+            {
+                $len = strlen($header);
+                $header = explode(':', $header, 2);
+                if (count($header) < 2)
+                {
+                    return $len;
+                }
+
+                $headers[strtolower(trim($header[0]))][] = trim($header[1]);
+
+                return $len;
+            }
+        );
+
         // Execute
-        $results = curl_exec($ch);
+        $body = curl_exec($ch);
 
         // Get response code
         $response_code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
 
         // Make sure valid response
-        if ( empty($results) ) {
+        if ( empty($body) ) {
             $this->error("Request Error: " . curl_error($ch));
         }
 
@@ -288,7 +316,7 @@ g    */
             or $response_code > 299
         ) {
             $this->error("Response: $response_code", false);
-            $this->error($results);
+            $this->error($body);
         }
 
         if ($close)
@@ -296,13 +324,13 @@ g    */
             curl_close($ch);
         }
 
-        return $results;
+        return [$body, $headers];
     }
 
     /**
      * Output API Results with links
      */
-    protected function outputAPIResults ($results, $output=true)
+    protected function outputAPIResults ($body, $output=true)
     {
         if (is_string($output))
         {
@@ -321,7 +349,7 @@ g    */
             $output = [];
         }
 
-        foreach ($results as $result)
+        foreach ($body as $result)
         {
             $type = $result->getName();
             $name_field = isset($this->name_field[$type]) ? $this->name_field[$type] : "name";
@@ -363,7 +391,7 @@ g    */
         }
 
         $this->hr();
-        $this->output("Total Results: " . count($results));
+        $this->output("Total Results: " . count($body));
     }
 
     /**
