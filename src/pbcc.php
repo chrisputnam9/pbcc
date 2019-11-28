@@ -15,6 +15,7 @@ Class Pbcc extends Console_Abstract
      */
     protected static $METHODS = [
         'alias',
+        'browse',
         'search',
         'get',
         'post',
@@ -64,6 +65,32 @@ Class Pbcc extends Console_Abstract
     ];
 	public function alias($name, $value=null)
     {
+    }
+
+    protected $___browse = [
+        "Open link to result in browser",
+        ["Result ID", "int", "required"],
+        ["Result type", "string", "required"],
+    ];
+    // for internal use, result may be object, then type is not required
+    public function browse($result, $type=null)
+    {
+        if (!is_object($result))
+        {
+            $id = (int) $result;
+            $type = (string) $type;
+            if (empty($id) or empty($type))
+            {
+                $this->error('ID and Type required');
+            }
+            $result = new stdClass();
+            $result->id = $id;
+            $result->type = $type;
+        }
+
+        $link = $this->getResultLink($result);
+
+        $this->exec('google-chrome "'.$link.'"', true);
     }
 
     protected $___search = [
@@ -384,13 +411,8 @@ g    */
                 $name = substr($name, 0, 57) . '...';
             }
             $name = str_pad($name, 60);
-            $link = "";
 
-            $link_template = isset($this->link_template[$type]) ? $this->link_template[$type] : false;
-            if ($link_template)
-            {
-                $link = $this->api_url . sprintf($link_template, $result->id);
-            }
+            $link = $this->getResultLink($result);
 
             $this->output("(" . $result->id . ") $name [$link]");
 
@@ -413,6 +435,23 @@ g    */
 
         $this->hr();
         $this->output("Total Results: " . count($body));
+    }
+
+    /**
+     * Get link to result item
+     */
+    protected function getResultLink($result)
+    {
+        $type = $result->getName();
+        $link = "";
+
+        $link_template = isset($this->link_template[$type]) ? $this->link_template[$type] : false;
+        if ($link_template)
+        {
+            $link = $this->api_url . sprintf($link_template, $result->id);
+        }
+
+        return $link;
     }
 
     /**
