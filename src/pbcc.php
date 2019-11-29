@@ -23,6 +23,16 @@ Class Pbcc extends Console_Abstract
         'xpath',
     ];
 
+    protected static $HIDDEN_CONFIG_OPTIONS = [
+        'api_key',
+        'api_url',
+        'api_user_agent',
+        'api_user_email',
+        'api_cache_lifetime',
+        'aliases',
+        'browser_exec',
+    ];
+
     // Config Variables
     protected $__api_key = ["Basecamp Classic API key", "string"];
     public $api_key = "";
@@ -45,6 +55,9 @@ Class Pbcc extends Console_Abstract
     protected $__aliases = ["Aliases for endpoint URLs and segments"];
     protected $aliases = [];
 
+    protected $__browser_exec = ["Command to open links in browser - %s for link placeholder via sprintf"];
+    protected $browser_exec = 'google-chrome "%s"';
+
     // Information for specific types
     protected $name_field = [
         'project' => 'name',
@@ -52,7 +65,10 @@ Class Pbcc extends Console_Abstract
     ];
 
     protected $link_template = [
+        'project' => '/projects/%s',
+        'todo-list' => '/todo_lists/%s',
         'todo-item' => '/todo_items/%s/comments',
+        'person' => '/people/%s/edit',
     ];
 
     // Update this to your update URL, or remove it to disable updates
@@ -75,22 +91,10 @@ Class Pbcc extends Console_Abstract
     // for internal use, result may be object, then type is not required
     public function browse($result, $type=null)
     {
-        if (!is_object($result))
-        {
-            $id = (int) $result;
-            $type = (string) $type;
-            if (empty($id) or empty($type))
-            {
-                $this->error('ID and Type required');
-            }
-            $result = new stdClass();
-            $result->id = $id;
-            $result->type = $type;
-        }
+        $link = $this->getResultLink($result, $type);
 
-        $link = $this->getResultLink($result);
-
-        $this->exec('google-chrome "'.$link.'"', true);
+        $command = sprintf($this->browser_exec, $link);
+        $this->exec($command, true);
     }
 
     protected $___search = [
@@ -440,15 +444,33 @@ g    */
     /**
      * Get link to result item
      */
-    protected function getResultLink($result)
+    protected function getResultLink($result, $type=null)
     {
-        $type = $result->getName();
+        if (is_object($result))
+        {
+            $id = (int) $result->id;
+            $type = (string) $result->getName();
+        }
+        else
+        {
+            $id = (int) $result;
+        }
+
+        if (empty($id) or empty($type))
+        {
+            $this->error('ID and Type required');
+        }
+
         $link = "";
 
         $link_template = isset($this->link_template[$type]) ? $this->link_template[$type] : false;
         if ($link_template)
         {
-            $link = $this->api_url . sprintf($link_template, $result->id);
+            $link = $this->api_url . sprintf($link_template, $id);
+        }
+        else
+        {
+            $this->error("No link template defined for type: $type");
         }
 
         return $link;
