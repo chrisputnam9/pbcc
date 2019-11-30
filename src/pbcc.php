@@ -65,10 +65,20 @@ Class Pbcc extends Console_Abstract
     ];
 
     protected $link_template = [
-        'project' => '/projects/%s',
-        'todo-list' => '/todo_lists/%s',
-        'todo-item' => '/todo_items/%s/comments',
-        'person' => '/people/%s/edit',
+        // 'account' => '', // No known URL
+        // 'attachments' => '', // No known URL - see file instead
+        'calendar_entries' => '', // https://webpagefx.basecamphq.com/projects/1394938-wpfx-priorities-interactive/milestones
+        'categories' => '', // ?
+        'comments' => '',// https://webpagefx.basecamphq.com/projects/1394938-wpfx-priorities-interactive/todo_items/193471133/comments
+        'company' => '/clients/%s', // tested
+        'data_reference' => '', // ?
+        'files' => '', // https://webpagefx.basecamphq.com/projects/1394938-wpfx-priorities-interactive/todo_items/193471133/comments
+        'messages' => '', // https://webpagefx.basecamphq.com/projects/1394938-wpfx-priorities-interactive/posts/96722167/comments
+        'person' => '/people/%s/edit', // tested
+        'project' => '/projects/%s', // tested
+        'time_tracking' => '',
+        'todo-item' => '/todo_items/%s/comments', // tested
+        'todo-list' => '/todo_lists/%s', // tested
     ];
 
     // Update this to your update URL, or remove it to disable updates
