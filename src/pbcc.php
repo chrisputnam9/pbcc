@@ -66,13 +66,13 @@ Class Pbcc extends Console_Abstract
 
     protected $link_template = [
         // 'account' => '', // No known URL
-        // 'attachments' => '', // No known URL - see file instead
+        // 'attachment' => '', // Use Download URL
         'calendar_entries' => '', // https://webpagefx.basecamphq.com/projects/1394938-wpfx-priorities-interactive/milestones
         'categories' => '', // ?
         'comments' => '',// https://webpagefx.basecamphq.com/projects/1394938-wpfx-priorities-interactive/todo_items/193471133/comments
-        'company' => '/clients/%s', // tested
         'data_reference' => '', // ?
-        'files' => '', // https://webpagefx.basecamphq.com/projects/1394938-wpfx-priorities-interactive/todo_items/193471133/comments
+        'company' => '/clients/%s', // tested
+        // 'file' => '', // See attachment
         'messages' => '', // https://webpagefx.basecamphq.com/projects/1394938-wpfx-priorities-interactive/posts/96722167/comments
         'person' => '/people/%s/edit', // tested
         'project' => '/projects/%s', // tested
@@ -146,7 +146,10 @@ Class Pbcc extends Console_Abstract
         // Clean up endpoint
         $endpoint = trim($endpoint, " \t\n\r\0\x0B/");
         $endpoint = preg_replace("~\.xml$~", "", $endpoint);
-        $endpoint = $endpoint . '.xml';
+        if (strpos($endpoint, '.xml') === false)
+        {
+            $endpoint = $endpoint . '.xml';
+        }
 
         // Check for valid cached result if cache is enabled
         $cache_file = $this->getAPICacheFilepath($endpoint);
@@ -204,7 +207,8 @@ Class Pbcc extends Console_Abstract
             }
             else
             {
-                $this->output($body);
+                $xml = new SimpleXMLElement($body);
+                $this->outputAPIResults($xml, $output);
             }
         }
 
