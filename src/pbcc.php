@@ -207,8 +207,7 @@ Class Pbcc extends Console_Abstract
             }
             else
             {
-                $xml = new SimpleXMLElement($body);
-                $this->outputAPIResults($xml, $output);
+                $this->output($body);
             }
         }
 
