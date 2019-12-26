@@ -395,7 +395,7 @@ g    */
     /**
      * Output API Results with links
      */
-    protected function outputAPIResults ($body, $output=true)
+    public function outputAPIResults ($body, $output=true)
     {
         if (is_string($output))
         {
