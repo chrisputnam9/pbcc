@@ -414,6 +414,11 @@ g    */
             $output = [];
         }
 
+        if (!is_iterable($body))
+        {
+            $body = [$body];
+        }
+
         foreach ($body as $result)
         {
             $type = $result->getName();
@@ -480,6 +485,11 @@ g    */
         if ($link_template)
         {
             $link = $this->api_url . sprintf($link_template, $id);
+        }
+        elseif($type == 'comment')
+        {
+            //todo implement comment link logic based on type and type id
+            return false;
         }
         else
         {
