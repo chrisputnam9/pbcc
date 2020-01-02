@@ -30,7 +30,6 @@ Class Pbcc extends Console_Abstract
         'api_user_email',
         'api_cache_lifetime',
         'aliases',
-        'browser_exec',
     ];
 
     // Config Variables
@@ -54,9 +53,6 @@ Class Pbcc extends Console_Abstract
 
     protected $__aliases = ["Aliases for endpoint URLs and segments"];
     protected $aliases = [];
-
-    protected $__browser_exec = ["Command to open links in browser - %s for link placeholder via sprintf"];
-    protected $browser_exec = 'google-chrome "%s"';
 
     // Information for specific types
     protected $name_field = [
@@ -102,9 +98,7 @@ Class Pbcc extends Console_Abstract
     public function browse($result, $type=null)
     {
         $link = $this->getResultLink($result, $type);
-
-        $command = sprintf($this->browser_exec, $link);
-        $this->exec($command, true);
+        parent::openInBrowser($link);
     }
 
     protected $___search = [
