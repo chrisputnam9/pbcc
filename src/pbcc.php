@@ -408,11 +408,6 @@ g    */
             $output = [];
         }
 
-        if (!is_iterable($body))
-        {
-            $body = [$body];
-        }
-
         foreach ($body as $result)
         {
             $type = $result->getName();
