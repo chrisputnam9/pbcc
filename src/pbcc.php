@@ -449,6 +449,15 @@ g    */
     }
 
     /**
+     * Output SINGLE API Result with link
+     * - just wraps body in array and calls outputAPIResults
+     */
+    public function outputAPIResult ($body, $output=true)
+    {
+        $this->outputAPIResults([$body], $output);
+    }
+
+    /**
      * Get link to result item
      */
     protected function getResultLink($result, $type=null)
