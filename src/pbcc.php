@@ -460,7 +460,7 @@ g    */
     /**
      * Get link to result item
      */
-    protected function getResultLink($result, $type=null)
+    public function getResultLink($result, $type=null)
     {
         if (is_object($result))
         {
