@@ -109,7 +109,7 @@ Class Pbcc extends Console_Abstract
     ];
 	public function search($endpoint, $query, $output=true)
     {
-        return $this->xpath($endpoint, "/*/*/*[contains(., '$query')]/..", $output);
+        return $this->xpath($endpoint, "/*/*/*[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '$query')]/..", $output);
     }
 
     protected $___xpath = [
@@ -132,7 +132,7 @@ Class Pbcc extends Console_Abstract
 
     protected $___get = [
         "GET data from the Basecamp Classic API",
-        ["Endpoint slug", "string"],
+        ["Endpoint slug or 'todo_templates'", "string"],
         ["Fields to output in results - comma separated, false to output nothing, * to show all", "string"],
     ];
 	public function get($endpoint, $output=true, $return_headers=false)
@@ -312,6 +312,7 @@ Class Pbcc extends Console_Abstract
 
     /**
      * Prep Curl object to hit BC API
+     * - endpoint may be api endpoint or 'todo_templates'", "string"],
      */
     protected function getAPICurl($endpoint)
     {
