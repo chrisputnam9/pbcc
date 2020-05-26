@@ -276,20 +276,6 @@ Class Pbcc extends Console_Abstract
     }
 
     /**
-     * Get caching file path for given request
-     */
-    protected function getAPICacheFilepath($endpoint)
-    {
-        $config_dir = $this->getConfigDir();
-        $cache_dir = $config_dir . DS . 'cache' . DS . 'bc-api';
-        $endpoint = str_replace("/", DS, $endpoint);
-
-        $cache_file = $cache_dir . DS . $endpoint;
-
-        return $cache_file;
-    }
-
-    /**
      * Prep Curl object to hit BC API
      * - endpoint may be api endpoint
      *   - or 'templates' for todo templates (custom)
