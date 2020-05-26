@@ -32,6 +32,10 @@ Class Pbcc extends Console_Abstract
         'aliases',
     ];
 
+    protected static $HTML_ENDPOINTS = [
+        'templates.xml',
+    ];
+
     // Config Variables
     protected $__api_key = ["Basecamp Classic API key", "string"];
     public $api_key = "";
@@ -146,33 +150,17 @@ Class Pbcc extends Console_Abstract
         }
 
         // Check for valid cached result if cache is enabled
-        $cache_file = $this->getAPICacheFilepath($endpoint);
         $body = "";
         if ($this->api_cache and !$return_headers)
         {
             $this->log("Cache is enabled - checking...");
 
-            if (is_file($cache_file))
-            {
-                $this->log("Cache file exists ($cache_file) - checking age");
-                $cache_modified = filemtime($cache_file);
-                $now = time();
-                $cache_age = $now - $cache_modified;
-                if ($cache_age < $this->api_cache_lifetime)
-                {
-                    $this->log("New enough - reading from cache file ($cache_file)");
-                    $body = file_get_contents($cache_file);
-                    if ($body === false)
-                    {
-                        $this->warn("Failed to read cache file ($cache_file) - possible permissions issue");
-                    }
-                }
-            }
+            $body = $this->getCacheContents(['bc-api', $endpoint], $this->api_cache_lifetime);
         }
 
         if (empty($body))
         {
-            $this->log("Running fresh API request");
+            $this->log("Absent cache data, running fresh API request");
 
             // Get API curl object for endpoint
             $ch = $this->getAPICurl($endpoint);
@@ -181,16 +169,7 @@ Class Pbcc extends Console_Abstract
             list($body, $headers) = $this->runAPICurl($ch);
 
             // Cache results
-            $cache_dir = dirname($cache_file);
-            if (!is_dir($cache_dir))
-                mkdir($cache_dir, 0755, true);
-
-            $cache_file = $this->getAPICacheFilepath($endpoint);
-            $written = file_put_contents($cache_file, $body);
-            if ($written === false)
-            {
-                $this->warn("Failed to write to cache file ($cache_file) - possible permissions issue");
-            }
+            $this->setCacheContents(['bc-api', $endpoint], $body);
         }
 
         if ($output)
@@ -312,12 +291,33 @@ Class Pbcc extends Console_Abstract
 
     /**
      * Prep Curl object to hit BC API
-     * - endpoint may be api endpoint or 'todo_templates'", "string"],
+     * - endpoint may be api endpoint
+     *   - or 'templates' for todo templates (custom)
+     *   - or 'project_templates' (undocumented)
      */
     protected function getAPICurl($endpoint)
     {
         $this->setupAPI();
         $ch = $this->getCurl($this->api_url . '/' . $endpoint);
+
+        if (in_array($endpoint, self::$HTML_ENDPOINTS))
+        {
+            $html_endpoint = str_replace('.xml', '', $endpoint);
+
+            $tokens = $this->getAPIBrowserTokens();
+            $this->output($tokens);
+            die;
+
+            curl_setopt_array($ch, [
+                CURLOPT_HTTPHEADER => array(
+                    'Cookie: twisted_token=1ec93443ecec90c2bb4ec1e37c44c085cea7' . 
+                        '; session_token=b4286d83f34782849aea'
+                ),
+                CURLOPT_TIMEOUT => 1800,
+            ]);
+            return $ch;
+        }
+
         curl_setopt_array($ch, [
             CURLOPT_USERAGENT => sprintf($this->api_user_agent, $this->api_user_email),
             CURLOPT_HTTPHEADER => array(
@@ -328,6 +328,67 @@ Class Pbcc extends Console_Abstract
             CURLOPT_TIMEOUT => 1800,
         ]);
         return $ch;
+    }
+
+    /**
+     * Get API Browser Tokens for custom "API" calls - eg. /templates
+     * - Check cache for tokens
+     * - Do a test curl to confirm validity
+     * - Prompt for new tokens and save to cache if needed
+     */
+    protected $_apiBrowserTokens = null;
+    protected function getAPIBrowserTokens()
+    {
+        // If cached on instance, we'll assume still valid
+        if (is_null($this->_apiBrowserTokens))
+        {
+            $cached_tokens = false;
+            $tokens_valid = false;
+
+            // Check cache file
+            // todo
+
+            if ( ! empty($cached_tokens) )
+            {
+                // Check validity of cached tokens
+                // todo
+            }
+
+            if ( ! $tokens_valid )
+            {
+                // Prompt for fresh tokens
+                // Open browser for the user
+                $search_page = $this->api_url . '/search';
+                $this->output("The requested endpoint is implemented outside the BC API via custom methods.");
+                $this->output("In order to support this, active standard session cookies are needed.");
+                $this->output("Open $search_page in your browser (since it's a simple, fast page to load) - this should open now for you");
+
+                $this->openInBrowser($search_page);
+                $this->hr();
+
+                $this->output("Follow these instructions to provide your session cookies to be used by this tool:");
+                $this->br();
+                $this->output("   1. Log in if not already logged in");
+                $this->br();
+                $this->output("   2. Open your developer tools (eg. F12, Ctrl+Shift+J or Cmd+J in Chrome)");
+                $this->br();
+                $this->output("   3. Navigate to the tab that shows cookies (eg. Application in Chrome)");
+                $this->br();
+                $twisted_token = $this->input("   4. Enter the value of the 'twisted_token' cookie");
+                $this->br();
+                $session_token = $this->input("   5. Enter the value of the 'session_token' cookie");
+                $this->br();
+                $this->_apiBrowserTokens = [
+                    'twisted_token' => $twisted_token,
+                    'session_token' => $session_token,
+                ];
+
+                // Cache to file
+                // todo
+            }
+
+        }
+        return $this->_apiBrowserTokens;
     }
 
     /**
