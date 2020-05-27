@@ -29,10 +29,12 @@ Class Pbcc extends Console_Abstract
         'api_user_agent',
         'api_user_email',
         'api_cache_lifetime',
+        'api_tokens_lifetime',
         'aliases',
     ];
 
     protected static $HTML_ENDPOINTS = [
+        'search.xml',
         'templates.xml',
     ];
 
@@ -54,6 +56,9 @@ Class Pbcc extends Console_Abstract
 
     protected $__api_cache_lifetime = ["How long to cache results in seconds (if enabled)"];
     public $api_cache_lifetime = 86400; // Default: 24 hours
+
+    protected $__api_tokens_lifetime = ["How long to cache API browser tokens in seconds"];
+    public $api_tokens_lifetime = 2592000; // Default: 30 days
 
     protected $__aliases = ["Aliases for endpoint URLs and segments"];
     protected $aliases = [];
@@ -286,18 +291,24 @@ Class Pbcc extends Console_Abstract
         $this->setupAPI();
         $ch = $this->getCurl($this->api_url . '/' . $endpoint);
 
+        // Typically a redirect means something was incorrect - eg. prompting for login
+        curl_setopt_array($ch, [
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_TIMEOUT => 1800,
+            CURLOPT_USERAGENT => sprintf($this->api_user_agent, $this->api_user_email),
+        ]);
+
         if (in_array($endpoint, self::$HTML_ENDPOINTS))
         {
             $html_endpoint = str_replace('.xml', '', $endpoint);
 
             $tokens = $this->getAPIBrowserTokens();
-            $this->output($tokens);
-            die;
 
             curl_setopt_array($ch, [
+                CURLOPT_URL => $this->api_url . '/' . $html_endpoint,
                 CURLOPT_HTTPHEADER => array(
-                    'Cookie: twisted_token=1ec93443ecec90c2bb4ec1e37c44c085cea7' . 
-                        '; session_token=b4286d83f34782849aea'
+                    'Cookie: twisted_token=' . $tokens['twisted_token'] .
+                        '; session_token=' . $tokens['session_token']
                 ),
                 CURLOPT_TIMEOUT => 1800,
             ]);
@@ -305,13 +316,11 @@ Class Pbcc extends Console_Abstract
         }
 
         curl_setopt_array($ch, [
-            CURLOPT_USERAGENT => sprintf($this->api_user_agent, $this->api_user_email),
             CURLOPT_HTTPHEADER => array(
                 'Accept: application/xml',
                 'Content-Type: application/xml',
                 'Authorization: Basic ' . base64_encode($this->api_key . ':X'),
             ),
-            CURLOPT_TIMEOUT => 1800,
         ]);
         return $ch;
     }
@@ -332,12 +341,36 @@ Class Pbcc extends Console_Abstract
             $tokens_valid = false;
 
             // Check cache file
-            // todo
+            $token_json = $this->getCacheContents('bc-api-browser-tokens.json', $this->api_tokens_lifetime);
+            if (!empty($token_json))
+            {
+                $cached_tokens = json_decode($token_json, true);
+                if (empty($cached_tokens))
+                {
+                    $this->warn("Likely syntax error with cache file - bc-api-browser-tokens.json", true);
+                }
+            }
 
+            // Check validity of cached tokens (todo: have this checked during actual calls instead - but this is a fairly quick request)
             if ( ! empty($cached_tokens) )
             {
-                // Check validity of cached tokens
-                // todo
+
+                // Prevent an infinite loop - our call to get below will get these tokens to use
+                $this->_apiBrowserTokens = $cached_tokens;
+
+                // try a request to the 'search' endpoint, check response headers
+                $this->log("Checking if current cached browser tokens are valid...");
+                $results = $this->get('search', false, true);
+                $headers = $results[1];
+
+                if (empty($headers['location']) or empty($headers['location'][0]) or(stripos($headers['location'][0], "login") === false))
+                {
+                    if (!empty($results[0]) and strlen($results[0]) > 5000)
+                    {
+                        $this->log("Tokens are valid!");
+                        $tokens_valid = true;
+                    }
+                }
             }
 
             if ( ! $tokens_valid )
@@ -350,8 +383,8 @@ Class Pbcc extends Console_Abstract
                 $this->output("Open $search_page in your browser (since it's a simple, fast page to load) - this should open now for you");
 
                 $this->openInBrowser($search_page);
-                $this->hr();
 
+                $this->hr();
                 $this->output("Follow these instructions to provide your session cookies to be used by this tool:");
                 $this->br();
                 $this->output("   1. Log in if not already logged in");
@@ -363,14 +396,16 @@ Class Pbcc extends Console_Abstract
                 $twisted_token = $this->input("   4. Enter the value of the 'twisted_token' cookie");
                 $this->br();
                 $session_token = $this->input("   5. Enter the value of the 'session_token' cookie");
-                $this->br();
+                $this->hr();
+
                 $this->_apiBrowserTokens = [
                     'twisted_token' => $twisted_token,
                     'session_token' => $session_token,
                 ];
 
                 // Cache to file
-                // todo
+                $this->setCacheContents('bc-api-browser-tokens.json', json_encode($this->_apiBrowserTokens, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
             }
 
         }
@@ -403,7 +438,7 @@ g    */
         );
 
         // Execute
-        $body = curl_exec($ch);
+        $body = $this->execCurl($ch);
 
         // Get response code
         $response_code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -420,10 +455,15 @@ g    */
 
         if (
             $response_code < 200
-            or $response_code > 299
+            or $response_code > 399
         ) {
             $this->error("Response: $response_code", false);
             $this->error($body);
+        }
+
+        if ($response_code > 299)
+        {
+            $this->warn("Response: $response_code");
         }
 
         if ($close)
