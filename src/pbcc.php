@@ -204,15 +204,22 @@ Class Pbcc extends Console_Abstract
                     case 'templates.xml':
                         // Create new XML object
 
-                        if (preg_match_all('/\<a[^\>]*href\s*\=\s*[\'"]\/templates\/list\/(\d+)[\'"][^\>]*\>([^\>]*)\</', $body, $matches))
+                        if (preg_match_all('/\<a[^>]*href\s*\=\s*[\'"]\/templates\/list\/(\d+)[\'"][^>]*\>([^>]*)\</', $body, $matches))
                         {
                             print_r($matches[0][0]);
+                            echo "\n";
                             print_r($matches[1][0]);
+                            echo "\n";
                             print_r($matches[2][0]);
+                            echo "\n";
+                            echo "\n";
 
                             print_r($matches[0][1]);
+                            echo "\n";
                             print_r($matches[1][1]);
+                            echo "\n";
                             print_r($matches[2][1]);
+                            echo "\n";
                         }
                         die("--------------");
 
