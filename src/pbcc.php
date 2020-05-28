@@ -154,6 +154,11 @@ Class Pbcc extends Console_Abstract
             $endpoint = $endpoint . '.xml';
         }
 
+        $html_endpoint = in_array($endpoint, self::$HTML_ENDPOINTS)
+            ? str_replace('.xml', '.html', $endpoint)
+            : false;
+        $html_body = false;
+
         // Check for valid cached result if cache is enabled
         $body = "";
         if ($this->api_cache and !$return_headers)
@@ -165,13 +170,65 @@ Class Pbcc extends Console_Abstract
 
         if (empty($body))
         {
-            $this->log("Absent cache data, running fresh API request");
 
-            // Get API curl object for endpoint
-            $ch = $this->getAPICurl($endpoint);
+            // If HTML Endpoint, check for cached HTML
+            if ($html_endpoint and $this->api_cache and !$return_headers)
+            {
+                $this->log("Absent XML cache data, checking for HTML cache data");
+                $body = $this->getCacheContents(['bc-api', $html_endpoint], $this->api_cache_lifetime);
+            }
 
-            // Execute and check results
-            list($body, $headers) = $this->runAPICurl($ch);
+            if (empty($body))
+            {
+                $this->log("Absent cache data, running fresh API request");
+
+                // Get API curl object for endpoint
+                $ch = $this->getAPICurl($endpoint);
+
+                // Execute and check results
+                list($body, $headers) = $this->runAPICurl($ch);
+
+                if ($html_endpoint)
+                {
+                    // Cache HTML
+                    $this->setCacheContents(['bc-api', $html_endpoint], $body);
+                }
+
+            }
+
+            // If HTML endpoint, cache to html file and parse manually
+            if ($html_endpoint)
+            {
+                switch($endpoint)
+                {
+                    case 'templates.xml':
+                        // Create new XML object
+
+                        if (preg_match_all('/\<a[^\>]*href\s*\=\s*[\'"]\/templates\/list\/(\d+)[\'"][^\>]*\>([^\>]*)\</', $body, $matches))
+                        {
+                            print_r($matches[0][0]);
+                            print_r($matches[1][0]);
+                            print_r($matches[2][0]);
+
+                            print_r($matches[0][1]);
+                            print_r($matches[1][1]);
+                            print_r($matches[2][1]);
+                        }
+                        die("--------------");
+
+                        // Output to XML string
+
+                        break;
+
+                    case 'search.xml':
+                        // Not really in use yet, just for validation
+                        break;
+
+                    default:
+                        $this->error("Parsing for '$endpoint' endpoint not yet implemented");
+                        break;
+                }
+            }
 
             // Cache results
             $this->setCacheContents(['bc-api', $endpoint], $body);
