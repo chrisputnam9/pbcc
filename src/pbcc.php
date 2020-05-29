@@ -81,6 +81,7 @@ Class Pbcc extends Console_Abstract
         'messages' => '', // https://webpagefx.basecamphq.com/projects/1394938-wpfx-priorities-interactive/posts/96722167/comments
         'person' => '/people/%s/edit', // tested
         'project' => '/projects/%s', // tested
+        'template' => '/templates/list/%s', // tested
         'time_tracking' => '',
         'todo-item' => '/todo_items/%s/comments', // tested
         'todo-list' => '/todo_lists/%s', // tested
@@ -203,27 +204,25 @@ Class Pbcc extends Console_Abstract
                 {
                     case 'templates.xml':
                         // Create new XML object
+                        $xml = new SimpleXMLElement('<templates type="array"></templates>');
 
                         if (preg_match_all('/\<a[^>]*href\s*\=\s*[\'"]\/templates\/list\/(\d+)[\'"][^>]*\>([^>]*)\</', $body, $matches))
                         {
-                            print_r($matches[0][0]);
-                            echo "\n";
-                            print_r($matches[1][0]);
-                            echo "\n";
-                            print_r($matches[2][0]);
-                            echo "\n";
-                            echo "\n";
+                            foreach ($matches[1] as $i => $id)
+                            {
+                                $name = $matches[2][$i];
 
-                            print_r($matches[0][1]);
-                            echo "\n";
-                            print_r($matches[1][1]);
-                            echo "\n";
-                            print_r($matches[2][1]);
-                            echo "\n";
+                                $xml_template = $xml->addChild('template');
+                                $xml_template->addChild('status', 'template');
+
+                                $xml_template->addChild('id', $id)
+                                    ->addAttribute('type', 'integer');
+
+                                $xml_template->addChild('name', $name);
+                            }
                         }
-                        die("--------------");
 
-                        // Output to XML string
+                        $body = $xml->asXML();
 
                         break;
 
@@ -249,7 +248,7 @@ Class Pbcc extends Console_Abstract
             }
             else
             {
-                $this->output($body);
+                $this->outputAPIResults($body);
             }
         }
 
@@ -560,6 +559,11 @@ g    */
             $output = [];
         }
 
+        if (is_string($body))
+        {
+            $body = new SimpleXMLElement($body);
+        }
+
         foreach ($body as $result)
         {
             $type = $result->getName();
@@ -575,9 +579,11 @@ g    */
             }
             $name = str_pad($name, 60);
 
+            $id_output = str_pad("(" . $result->id . ")", 15);
+
             $link = $this->getResultLink($result);
 
-            $this->output("(" . $result->id . ") $name [$link]");
+            $this->output("$id_output $name [$link]");
 
             foreach ($output as $output_field)
             {
