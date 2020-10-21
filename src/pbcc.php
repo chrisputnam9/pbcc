@@ -572,7 +572,7 @@ g    */
             $name = "";
             if (isset($result->$name_field)) $name = $result->$name_field;
 
-            $name = strip_tags($name);
+            $name = $this->parseHtmlForTerminal($name);
             if (strlen($name) > 60)
             {
                 $name = substr($name, 0, 57) . '...';
