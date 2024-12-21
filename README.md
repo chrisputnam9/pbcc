@@ -1,3 +1,5 @@
+# NO LONGER MAINTAINED
+
 # Overview
 PBCC - PHP Basecamp Classic CLI - is a console tool for Basecamp Classic.
 
